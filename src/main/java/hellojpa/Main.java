@@ -1,6 +1,7 @@
 package hellojpa;
 
 import hellojpa.jpql.Member;
+import hellojpa.jpql.MemberDTO;
 
 import javax.persistence.*;
 import java.util.List;
@@ -19,26 +20,28 @@ public class Main {
             member.setAge(10);
             em.persist(member);
 
-            TypedQuery<Member> query = em.createQuery("select m from Member m", Member.class); // => TypedQuery<T>
-            String singleResult1 = em.createQuery("select m.username from Member m where m.username = :username", String.class) // 리턴 타입이 명확함. String => TypedQuery<T>
-                    .setParameter("username", "member1")
-                    .getSingleResult();
-            Query query2 = em.createQuery("select m.username, m.age from Member m");// 리턴 타입이 명확하지 않음. username = String, age = Integer => Query<T>
+            List<Member> result = em.createQuery("select m from Member m", Member.class) // select 절에 정의된 엔티티 모두 영속성 컨텍스트에서 관리됨.
+                    .getResultList();
+            Member findMember = result.get(0);
+            findMember.setAge(20); // 따라서 해당 코드처럼 속성 값을 변경하면 정상적으로 데이터 반영됨.
 
-            // 여러개
-            List<Member> resultList = query.getResultList();
-            for (Member member1 : resultList) {
-                System.out.println("member1 = " + member1);
-            }
+            // 여러 값 조회
+            List<Object[]> resultList = em.createQuery("select m.username, m.age from Member m")
+                    .getResultList();
 
-            // 1개
-            // 표준 스펙에는 결과가 없으면, javax.persistence.NoResultException
-            // 결과가 둘 이상이면, javax.persistence.NonUniqueResultException
-            // Spring Data JPA -> Spring 이 해당 예외를 try/catch 해줌. NoResultException 발생하면 null or Optional 을 반환해줌.
-            Member singleResult = query.getSingleResult();
-            System.out.println("singleResult = " + singleResult);
+            Object[] resultGetFirst = resultList.get(0);
+            System.out.println("username = " + resultGetFirst[0]);
+            System.out.println("age = " + resultGetFirst[1]);
 
-            System.out.println("singleResult1 = " + singleResult1);
+            // 여러 값 조회 - new 명령어로 조회
+            // 단순 값을 DTO 로 바로 조회
+            // MemberDTO 패키지 명을 다 적어줘야함. -> JPQL 이 문자열이라서...
+            List<MemberDTO> resultList1 = em.createQuery("select new hellojpa.jpql.MemberDTO(m.username, m.age) from Member m", MemberDTO.class)
+                    .getResultList();
+
+            MemberDTO memberDTO = resultList1.get(0);
+            System.out.println("memberDTO.getUsername() = " + memberDTO.getUsername());
+            System.out.println("memberDTO.getAge() = " + memberDTO.getAge());
 
             tx.commit();
         } catch (Exception e) {
